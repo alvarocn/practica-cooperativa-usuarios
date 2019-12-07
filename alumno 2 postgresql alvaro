@@ -1,0 +1,331 @@
+Postgres:
+
+1) Averigua que privilegios de sistema hay en Postgres y como se asignan a un usuario.
+
+Los privilegios de sistemas en Postgresql se deteminan a través de los roles,los roles son usuarios y pueden tener asignados otros roles.
+
+Los privilegios pueden asignarse a los roles en la propia creación del rol o con posterioridad:
+
+	- CREATE ROLE <nombre_rol> WITH <opcion>;
+	- ALTER ROLE <nombre_rol>  WITH <opcion>;
+
+El manejo de roles en PostgreSQL permite diferentes configuraciones, entre ellas estan:
+
+- SUPERUSER/NOSUPERUSER: se agregan los privilegios de superusuario.
+- CREATEDB/NOCREATEDB: opción para crear bases de datos.
+- CREATEROLE/NOCREATEROLE: opción para crear nuevos roles.
+- VALID UNTIL: indica la expiración del rol/usuario.
+- [ENCRYPTED] PASSWORD: asigna una contraseña al rol/usuario.
+- LOGIN/NOLOGIN: opción para crear sesiones.
+- INHERIT/NOINHERIT: opción para determinar si hereda los privilegios de los roles de los que es miembro.
+- REPLICATION/NOREPLICATION: opción para controlar la transmisión.
+- BYPASSRL/NOBYPASSRLS: opción para omitir los sistemas de seguridad de fila de las tablas.
+- CONNECTION LIMIT: limita el número de sesiones concurrentes.
+- IN ROLE: opción para indicar los roles de los que formará parte.
+- ADMIN: opción para indicar el rol o los roles de los formará parte con derecho a agregar a otros roles en este.
+
+
+Ejemplo:
+
+	(usuario postgres)
+	alvaro2=# alter role cliente2 with NOCREATEDB;
+	ALTER ROLE
+	alvaro2=# 
+
+	(usuario cliente2)
+	alvaro2=> create database hola;
+	ERROR:  permission denied to create database
+	alvaro2=> 
+
+
+
+2) Averigua cual es la forma de asignar y revocar privilegios sobre una tabla concreta en Postgres.
+
+- Para asignar privilegios:
+
+	GRANT [privilegios] ON [objeto] TO {public | group | username}   [WITH GRANT OPTION]
+
+Los roles que pueden otorgar estos privilegios son:
+
+    Rol superusuario.
+    Rol propietario de la tabla.
+    Rol que ha recibido el privilegio con la opción WITH GRANT OPTION.
+
+Ejemplos:
+
+	(postgres)
+	alvaro2=# GRANT SELECT ON usuarios TO cliente2 ;
+	GRANT
+
+	(cliente)
+	alvaro2=> select * from usuarios ;
+	 nombre | clave  
+	--------+--------
+	 alvaro | 472126
+	(1 row)
+
+	alvaro2=> 
+
+
+
+
+- Para revocar privilegios:
+
+	REVOKE [privilegios] ON [objeto] from {public | group | username}
+
+	Ejemplos:
+
+	(Desde usuario postgres)
+	alvaro2=# REVOKE SELECT ON usuarios from cliente2 ;
+	REVOKE
+
+	(Desde cliente)
+	alvaro2=> select * from usuarios ;
+	ERROR:  permission denied for table usuarios
+	alvaro2=> select * from usuarios ;
+
+3) Averigua si existe el concepto de rol en Postgres y señala las diferencias con los roles de ORACLE.
+
+Si existe.
+
+Las diferencias entre ORACLE Y POSTGRESQL, es que en Oracle los roles son grupos de usuario y/o de otros roles y en postgresql solo se trabaja con roles,los roles son los propietario de las bases de datos y pueden estar compuestos de otros roles.
+La creación de roles y la asignación de privilegios sobre objetos a estos comparten la misma sintaxis en ambos gestores:
+
+Para listar los roles, y los privilegios en ORACLE las encontramos en el diccionario de datos, las vistas DBA_ROLES, DBA_ROLE_PRIVS y ROLE_ROLE_PRIVS. En Postgres se utiliza \du+.
+
+
+
+4) Averigua si existe el concepto de perfil como conjunto de límites sobre el uso de recursos o sobre la contraseña en Postgres y señala las diferencias con los perfiles de ORACLE.
+
+El concepto perfil en postgres no existen, en postgresql todas las delimitaciones se resuelven sobre los objetos y en oracle actúa sobre los usuarios.
+
+
+
+5) Realiza consultas al diccionario de datos de Postgres para averiguar todos los privilegios que tiene un usuario concreto.
+
+
+
+	select 'PRIVILEGIO '||privilege_type||
+	       	' EN LA TABLA '||table_name||
+	       	' DEL ESQUEMA '||table_schema||
+	       	' DE LA BASE DE DATOS '||table_catalog
+	from information_schema.table_privileges 
+	where grantee=<nombre_rol>;
+
+Ejemplo:
+
+	alvaro2=# select DISTINCT privilege_type 
+	alvaro2-# from information_schema.TABLE_PRIVILEGES 
+	alvaro2-# where grantee = 'postgres';
+	 privilege_type 
+	----------------
+	 DELETE
+	 INSERT
+	 REFERENCES
+	 SELECT
+	 TRIGGER
+	 TRUNCATE
+	 UPDATE
+	(7 rows)
+
+	alvaro2=# select DISTINCT privilege_type 
+	from information_schema.TABLE_PRIVILEGES 
+	where grantee = 'cliente2';
+	 privilege_type 
+	----------------
+	 DELETE
+	 INSERT
+	 REFERENCES
+	 TRIGGER
+	 TRUNCATE
+	 UPDATE	
+	(6 rows)
+
+
+
+6) Realiza consultas al diccionario de datos en Postgres para averiguar qué usuarios pueden consultar una tabla concreta.
+
+	select grantee
+	from information_schema.table_privileges
+	where table_name = <nombre_table>
+	and privilege_type = 'SELECT';
+
+
+	alvaro2=# select DISTINCT grantee, privilege_type 
+	from information_schema.role_table_grants 
+	where  table_name = 'usuarios'
+	and privilege_type = 'SELECT';
+	 grantee  | privilege_type 
+	----------+----------------
+	 cliente2 | SELECT
+	(1 row)
+
+	alvaro2=# 
+
+
+
+ORACLE:
+
+7) Realiza una función de verificación de contraseñas que compruebe que la contraseña difiere en más de tres caracteres de la anterior y que la longitud de la misma es diferente de la anterior. Asígnala al perfil CONTRASEÑASEGURA. Comprueba que funciona correctamente.
+
+create or replace procedure contarNumyletras (p_caracter varchar2, p_numero  in out number, p_letra   in out number)
+is
+begin
+    if p_caracter=REGEXP_REPLACE(p_caracter,'[0-9]') then
+        p_numero:=p_numero+1;
+    else
+        p_letra:=p_letra+1;
+    end if;
+end contarNumyletras;
+/
+
+
+create or replace procedure comparar(p_caracter varchar2, p_contrasena varchar2, p_mismaletra in out number)
+is
+begin
+    for i in 1..length(p_contrasena) loop
+        if substr(p_contrasena,i,1)=p_caracter then
+            p_mismaletra:=1;
+        end if;
+    end loop;
+end comparar;
+/
+
+
+
+create or replace function errores(p_repet number, p_num number, p_numletra number)
+return number
+is
+begin
+    case
+        when p_num<2 then
+            raise_application_error(-20003, 'La nueva contraseña tiene que tener al menos 2 letras');
+        when p_numletra<2 then
+            raise_application_error(-20004, 'La nueva contraseña tiene que tener al menos 2 numeros');
+	when p_repet<4 then
+            raise_application_error(-20002, 'La nueva contraseña tiene qie tener 3 caracteres diferente con la contrasena vieja');
+        else
+            return 1;
+    end case;          
+end errores;
+/
+
+
+create or replace function verificacioncontrasena (p_usuario varchar2, p_contrasenanueva varchar2, p_contrasenavieja varchar2)
+return boolean
+is
+    v_repet number:=0;
+    v_num number:=0;
+    v_mismaletra number:=0;
+    v_validar number:=0;
+    v_numletra number:=0;
+begin
+    if length(p_contrasenanueva)=length(p_contrasenavieja) then
+        raise_application_error(-20006, 'La contraseña nueva no debe ser d ela misma longitud que la anterior');
+    end if;
+    for i in 1..length(p_contrasenanueva) loop
+        ContarNumyletras(substr(p_contrasenanueva, i,1), v_num, v_numletra);
+        comparar(substr(p_contrasenanueva, i,1), p_contrasenavieja, v_mismaletra);
+        if v_mismaletra=0 then
+            v_repet:=v_repet+1;
+        end if;
+        v_mismaletra:=0; 
+    end loop;
+    v_validar:=errores(v_repet, v_num, v_numletra);
+    return TRUE;
+end verificacioncontrasena;
+/
+
+
+
+       
+8) Realiza un procedimiento llamado MostrarPrivilegiosdelRol que reciba el nombre de un rol y muestre los privilegios de sistema y los privilegios sobre objetos que lo componen.
+
+
+
+
+#  Privilegios del sistema
+create or replace procedure privdelsistema (p_role ROLE_SYS_PRIVS.ROLE%type)
+is
+	cursor c_privi
+	is
+	select DISTINCT PRIVILEGE
+	from ROLE_SYS_PRIVS 
+	where ROLE=p_role; 
+
+begin
+   	dbms_output.put_line('Privilegios Del Sistema');
+        dbms_output.put_line('-----------------');
+	for v_privi in c_privi loop
+		dbms_output.put_line(chr(9)|| v_privi.PRIVILEGE);
+	end loop;
+END;
+/
+
+exec privdelsistema('DBA');
+
+
+#  Privilegios sobre objetos que lo componen el rol
+
+create or replace procedure privdeobjeto (p_role ROLE_TAB_PRIVS.ROLE%type)
+is
+	cursor c_privi2
+	is
+	select DISTINCT PRIVILEGE
+	from ROLE_TAB_PRIVS 
+	where ROLE=p_role; 
+
+begin
+    	dbms_output.put_line('Privilegios Sobre Objetos');
+    	dbms_output.put_line('------------------');
+	for v_privi in c_privi2 loop
+		dbms_output.put_line(chr(9)|| v_privi.PRIVILEGE);
+	end loop;
+END;
+/
+
+exec privdeobjeto('DBA');
+
+# MOSTRAR TODOS LOS PRIVILEGIOS
+
+create or replace procedure MostrarPrivilegiosRol(p_role ROLE_TAB_PRIVS.ROLE%type)
+is
+begin
+
+	dbms_output.put_line('ROL: '||p_role);
+	dbms_output.put_line('------------------------------------------------------');
+	dbms_output.put_line('PRIVILEGIOS SISTEMA:');
+	dbms_output.put_line('------------------------------------------------------');
+	privdelsistema(p_role);
+	dbms_output.put_line('------------------------------------------------------');
+	dbms_output.put_line('PRIVILEGIOS SOBRE OBJETOS:');
+	privdeobjeto(p_role);
+END;
+/
+
+exec MostrarPriviRol('DBA');
+
+
+create or replace function comprobarrol(p_rol varchar2)
+return number
+is
+    v_resultado varchar2(30);
+begin
+    select role into v_resultado
+    from dba_roles
+    where role=p_rol;
+    return 0;
+exception
+    when NO_DATA_FOUND then
+        dbms_output.put_line('No existe ese rol '|| p_rol);
+        return -1;
+end comprobarrol;
+/
+
+
+
+
+
+
+
+
