@@ -1,0 +1,731 @@
+
+
+
+Parte Grupal:
+
+CASO PRÁCTICO 1:
+
+    1. (ORACLE, Postgres, MySQL) Crea un usuario llamado Becario y, sin usar los roles de ORACLE, dale los siguientes privilegios: (1,5 puntos)
+
+    • Conectarse a la base de datos.
+	Oracle:
+
+	grant create session to Becario;
+
+	PostgreSQL: 
+
+	- GRANT CONNECT ON DATABASE <database> TO <user>;
+        - GRANT CONNECT ON DATABASE practica3 TO becario;
+
+	MySQL:
+
+	GRANT CONNECT ON becario.* TO '*'@'%';	
+
+    • Modificar el número de errores en la introducción de la contraseña de cualquier usuario.
+	Oracle:
+	--Le damos al usuario Becario la posibilidad de crear perfiles
+	grant create profile to Becario;
+
+	Create profile LimiteContrasenas LIMIT
+	FAILED_LOGIN_ATTEMPTS 5
+	;
+
+	--Ahora le damos al usuario becarios la posibilidad de dar dicho perfil
+	grant alter user to Becario;
+
+	--Y ahora este usuario podría dar el perfil a diferentes usuarios
+	Alter user {USUARIO} profile LimiteContrasenas;
+
+	PostgreSQL: 
+	En postgresql no se puede modificar, ofrece infinitos intentos de login erróneos.
+
+	MySQL:
+
+    • Modificar índices en cualquier esquema (este privilegio podrá pasarlo a quien quiera)
+	Oracle:
+	--Prueba
+	SQL> connect Becario/Becario
+	Conectado.
+
+	Sesión modificada.
+
+	SQL> alter index ALEXRR.PK_CODIGO_VIVERO RENAME TO PK_CODIGO_VIVERO1;
+
+	Índice modificado.
+
+	PostgreSQL:
+	En Postgresql no permite modificar índices solamente crearlos y borrarlos.
+
+	MySQL:
+	GRANT CREATE, INDEX ON *.* TO 'becario'@'%';
+
+    • Insertar filas en scott.emp (este privilegio podrá pasarlo a quien quiera)
+	Oracle:
+	grant insert on SCOTT.EMP to Becario with grant option;
+
+	PostgreSQL: 
+	GRANT INSERT  ON TABLE scott.emp TO becario;
+	Además debes darle a ese usuario permiso para usar el esquema:
+	GRANT USAGE ON SCHEMA scott TO becario;
+
+	MySQL:
+	GRANT GRANT OPTION, INSERT ON scott.emp TO 'becario'@'%';
+    • Crear objetos en cualquier tablespace.
+	Oracle:
+	grant unlimited tablespace to Becario;
+	PostgreSQL: 
+	Tienes que asignar el privilegio para cada tablespace:
+	grant create on tablespace Nombre_T to becario;
+	MySQL:
+    • Gestión completa de usuarios, privilegios y roles.
+	Oracle:
+
+	--Usuarios
+	grant create user to Becario;
+	grant alter user to Becario;
+	grant drop user to Becario;
+
+	--Privilegios
+	grant grant any privilege to Becario;
+
+	--Roles
+	grant create role to Becario;
+	grant drop any role to Becario;
+	grant alter any role to Becario;
+	grant grant any role to Becario;
+
+
+	PostgreSQL: 
+	Hay que asignar la opción de superuser:
+
+	ALTER ROLE becario WITH SUPERUSER;
+
+	Pero esta opción da todos los permisos. Lo idóneo sería darles los permisos especificandolos:
+
+	Para administrar roles:
+
+	ALTER ROLE becario WITH CREATEROLE;
+	
+	Para otorgar el privilegio de login y de crear bases de datos a otros usuarios hay que añadir las siguientes opciones al usuario:
+
+	ALTER ROLE becario WITH LOGIN WITH GRANT OPTION;
+	ALTER ROLE becario WITH CREATEDB WITH GRANT OPTION;
+
+	MySQL:
+
+
+
+
+2. (ORACLE, Postgres, MySQL) Escribe una consulta que obtenga un script para quitar el privilegio de borrar registros en alguna tabla de SCOTT a los usuarios que lo tengan.
+
+Oracle:
+
+	SELECT 'REVOKE '||privilege||' ON '||owner||'.'||table_name||' from '||grantee||';'
+	FROM dba_tab_privs
+	WHERE owner = 'SCOTT'
+	AND privilege = 'DELETE';
+
+PostgreSQL: 
+
+	--Creamos las tablas de SCOTT
+
+	CREATE TABLE SCOTT.DEPT
+	(
+	DEPTNO NUMERIC(2),
+	DNAME VARCHAR(14),
+	LOC VARCHAR(13),
+	CONSTRAINT PK_DEPT PRIMARY KEY (DEPTNO)
+	);
+
+	CREATE TABLE SCOTT.EMP
+	(
+	EMPNO NUMERIC(4),
+	ENAME VARCHAR(10),
+	JOB VARCHAR(9),
+	MGR NUMERIC(4),
+	HIREDATE TIMESTAMP,
+	SAL NUMERIC(7, 2),
+	COMM NUMERIC(7, 2),
+	DEPTNO NUMERIC(2),
+	CONSTRAINT FK_DEPTNO FOREIGN KEY (DEPTNO) REFERENCES DEPT (DEPTNO),
+	CONSTRAINT PK_EMP PRIMARY KEY (EMPNO)
+	);
+
+
+	INSERT INTO DEPT VALUES (10, 'ACCOUNTING', 'NEW YORK');
+	INSERT INTO DEPT VALUES (20, 'RESEARCH', 'DALLAS');
+	INSERT INTO DEPT VALUES (30, 'SALES', 'CHICAGO');
+	INSERT INTO DEPT VALUES (40, 'OPERATIONS', 'BOSTON');
+	
+
+	INSERT INTO EMP VALUES(7369, 'SMITH', 'CLERK', 7902,TO_TIMESTAMP('17-12-1980', 'DD-MM-YYYY'), 800, NULL, 20);
+	INSERT INTO EMP VALUES(7499, 'ALLEN', 'SALESMAN', 7698,TO_TIMESTAMP('20-02-1981', 'DD-MM-YYYY'), 1600, 300, 30);
+	INSERT INTO EMP VALUES(7521, 'WARD', 'SALESMAN', 7698,TO_TIMESTAMP('22-02-1981', 'DD-MM-YYYY'), 1250, 500, 30);
+	INSERT INTO EMP VALUES(7566, 'JONES', 'MANAGER', 7839,TO_TIMESTAMP('02-04-1981', 'DD-MM-YYYY'), 2975, NULL, 20);
+	INSERT INTO EMP VALUES(7654, 'MARTIN', 'SALESMAN', 7698,TO_TIMESTAMP('28-09-1981', 'DD-MM-YYYY'), 1250, 1400, 30);
+	INSERT INTO EMP VALUES(7698, 'BLAKE', 'MANAGER', 7839,TO_TIMESTAMP('01-05-1981', 'DD-MM-YYYY'), 2850, NULL, 30);
+	INSERT INTO EMP VALUES(7782, 'CLARK', 'MANAGER', 7839,TO_TIMESTAMP('09-06-1981', 'DD-MM-YYYY'), 2450, NULL, 10);
+	INSERT INTO EMP VALUES(7788, 'SCOTT', 'ANALYST', 7566,TO_TIMESTAMP('09-12-1982', 'DD-MM-YYYY'), 3000, NULL, 20);
+	INSERT INTO EMP VALUES(7839, 'KING', 'PRESIDENT', NULL,TO_TIMESTAMP('17-11-1981', 'DD-MM-YYYY'), 5000, NULL, 10);
+	INSERT INTO EMP VALUES(7844, 'TURNER', 'SALESMAN', 7698,TO_TIMESTAMP('08-09-1981', 'DD-MM-YYYY'), 1500, 0, 30);
+	INSERT INTO EMP VALUES(7876, 'ADAMS', 'CLERK', 7788,TO_TIMESTAMP('12-01-1983', 'DD-MM-YYYY'), 1100, NULL, 20);
+	INSERT INTO EMP VALUES(7900, 'JAMES', 'CLERK', 7698,TO_TIMESTAMP('3-12-1981', 'DD-MM-YYYY'), 950, NULL, 30);
+	INSERT INTO EMP VALUES(7902, 'FORD', 'ANALYST', 7566,TO_TIMESTAMP('03-12-1981', 'DD-MM-YYYY'), 3000, NULL, 20);
+	INSERT INTO EMP VALUES(7934, 'MILLER', 'CLERK', 7782,TO_TIMESTAMP('23-01-1982', 'DD-MM-YYYY'), 1300, NULL, 10);
+
+	scott=> \d
+	       List of relations
+	 Schema | Name | Type  | Owner 
+	--------+-----x	-+-------+-------
+	 scott  | dept | table | scott
+	 scott  | emp  | table | scott
+	(2 rows)
+
+
+	--Vamos ahora a hacer el script y le vamos a dar el privilegio delete al usuario postgres por ejemplo
+
+	GRANT DELETE ON TABLE 'scott.emp' TO postgres;
+
+	select 'Revoke Delete on '||table_catalog||'.'||table_name||' from '||grantee||';'
+	from information_schema.role_table_grants
+	where table_catalog='scott'
+	and privilege_type='DELETE'
+	and table_schema='scott';
+
+	--Resultado
+                 ?column?                  
+	-------------------------------------------
+	Revoke Delete on scott.dept from scott;
+	Revoke Delete on scott.emp from scott;
+	Revoke Delete on scott.emp from postgres;
+
+
+
+
+
+MySQL:
+
+
+
+	--Creamos las tablas en la base de datos scott
+	CREATE TABLE scott.DEPT
+	(
+	DEPTNO NUMERIC(2),
+	DNAME VARCHAR(14),
+	LOC VARCHAR(13),
+	CONSTRAINT PK_DEPT PRIMARY KEY (DEPTNO)
+	);
+
+	CREATE TABLE scott.EMP
+	(
+	EMPNO NUMERIC(4),
+	ENAME VARCHAR(10),
+	JOB VARCHAR(9),
+	MGR NUMERIC(4),
+	HIREDATE TIMESTAMP,
+	SAL NUMERIC(7, 2),
+	COMM NUMERIC(7, 2),
+	DEPTNO NUMERIC(2),
+	CONSTRAINT FK_DEPTNO FOREIGN KEY (DEPTNO) REFERENCES DEPT (DEPTNO),
+	CONSTRAINT PK_EMP PRIMARY KEY (EMPNO)
+	);
+
+
+	--Ahora vamos a crear el SCRIPT
+
+
+	--Si se han dado a una sola tabla el script sería este:
+
+	Select concat('REVOKE DELETE ON ',table_schema,'.',table_name,' from ',grantee,';') as script
+	from information_schema.table_privileges
+	where table_schema='scott'
+	and privilege_type='DELETE';
+
+	+-----------------------------------------------+
+	| script                                        |
+	+-----------------------------------------------+
+	| REVOKE DELETE ON scott.DEPT from 'SCOTT'@'%'; |
+	| REVOKE DELETE ON scott.EMP from 'SCOTT'@'%';  |
+	+-----------------------------------------------+
+	2 rows in set (0.00 sec)
+
+
+
+	--Si se han dado en toda la base de datos de scott  el script sería este:
+
+	select concat('REVOKE DELETE ON scott.* from ',user,';') as script_revoke
+	from mysql.db 
+	where db='scott' 
+	and DELETE_PRIV = 'Y';
+
+	+--------------------------------------+
+	| script_revoke                        |
+	+--------------------------------------+
+	| REVOKE DELETE ON scott.* from SCOTT; |
+	+--------------------------------------+
+	1 row in set (0.00 sec)
+
+
+
+
+
+
+
+3. (ORACLE) Crea un tablespace TS2 con tamaño de extensión de 256K. Realiza una consulta que genere un script que asigne ese tablespace como tablespace por defecto a los usuarios que no tienen privilegios para consultar ninguna tabla de SCOTT, excepto a SYSTEM.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+4. (ORACLE, Postgres) Realiza un procedimiento que reciba un nombre de usuario y nos muestre cuántas sesiones tiene abiertas en este momento. Además, para cada una de dichas sesiones nos mostrará la hora de comienzo y el nombre de la máquina, sistema operativo y programa desde el que fue abierta.
+
+Oracle:
+
+	Create or replace procedure MostrarExcepciones(p_user varchar2)
+	is
+		v_existe number(1):=0;
+	begin
+		Select count(*) into v_existe
+		from dba_users
+		where USERNAME=p_user;
+		if v_existe=0 then
+			raise_application_error(-20001,'Ese usuario no existe');
+		end if;
+	end;
+	/
+
+	--El nombre del sistema operativo no está disponible para buscar en Oracle, lo máximo que se puede hacer es buscar el usuario del sistema que 		está usando, pero no su sistema operativo.
+
+	Create or replace procedure MostrarSesiones(p_user varchar2)
+	is
+		cursor c_sesiones is
+		select MACHINE as maquina,to_char(LOGON_TIME,'YYYY/MM/DD HH24:MI') as comienzo,program as programa
+		from v$session 
+		where USERNAME=p_user;
+		v_contador number(2):=1;
+	begin
+		for v_sesiones in c_sesiones loop
+			dbms_output.put_line('Sesion '||v_contador||'->');
+			dbms_output.put_line('Hora de comienzo: '||v_sesiones.comienzo);
+			dbms_output.put_line('El nombre de su máquina es: '||v_sesiones.maquina);
+			dbms_output.put_line('El nombre del programa es: '||v_sesiones.programa);
+			v_contador:=v_contador+1;
+		end loop;
+	end;
+	/
+
+	Create or replace procedure ExaminarConexiones(p_user varchar2)
+	is
+	begin
+		dbms_output.put_line('Usuario: '||p_user);
+		dbms_output.put_line('------------------');
+		MostrarExcepciones(p_user);
+		MostrarSesionesAbiertas(p_user);
+		MostrarSesiones(p_user);
+	end;
+	/
+
+
+
+
+
+
+PostgreSQL: 
+
+Postgresql NO guarda el sistema operativo con el que se conecta un usuario.
+
+	CREATE OR REPLACE FUNCTION sesiones (p_user varchar(30))
+	returns text as $$
+	declare
+		v_ses RECORD;
+		v_inf  text DEFAULT '';
+		v_reg  text DEFAULT '';
+		v_size integer := 0;
+	
+		c_sessions CURSOR
+		for select *
+		from pg_stat_activity
+		where username = p_user
+		and state = 'active';
+	BEGIN	
+		v_reg:= 'Sesiones abiertas del usuario: '||p_user||chr(10)||'Hostname'||chr(9)||'Connection Time'||chr(9)||'Application';
+	
+		OPEN c_sessions;
+		LOOP
+		FETCH c_sessions INTO v_ses;
+		EXIT when not found;
+
+		v_reg:= v_reg || v_ses.client_hostname || v_ses.backend_start || v_ses.application_name ||chr(10);
+
+		END LOOP;
+		CLOSE c_sessions;
+		return v_reg;
+	END;
+	$$ LANGUAGE plpgsql;
+
+
+
+
+5. (ORACLE) Realiza un procedimiento que muestre los usuarios que pueden conceder privilegios de sistema a otros usuarios y cuales son dichos privilegios.
+
+
+	Create or replace procedure verusuariorolsimple(p_rol varchar2,p_privilegio varchar2)
+	is
+		cursor c_usuarios is
+		Select GRANTEE
+		from dba_role_privs
+		where GRANTED_ROLE=p_rol;
+	begin
+		for v_usuarios in c_usuarios loop
+			dbms_output.put_line('Usuario: '||v_usuarios.GRANTEE);
+			dbms_output.put_line('Privilegio: '||p_privilegio);
+			dbms_output.put_line(chr(13));
+		end loop;
+	end;
+	/
+
+	Create or replace procedure verusuariorolcompuesto(p_rol varchar2,p_privilegio varchar2)
+	is
+		cursor c_compuesto is
+		select GRANTEE
+	   	from dba_role_privs
+		start with GRANTED_ROLE = p_rol
+	        connect by GRANTED_ROLE = prior GRANTEE;
+		v_analizarprivilegio number(1):=0;
+	begin
+		Select count(*) into v_analizarprivilegio
+		from role_sys_privs
+		where ROLE=p_rol
+		and PRIVILEGE=p_privilegio;
+		if v_analizarprivilegio != 0 then
+			for v_compuesto in c_compuesto loop
+				verusuariorolsimple(v_compuesto.GRANTEE,p_privilegio);
+			end loop;
+		else
+			verusuariorolsimple(p_rol,p_privilegio);
+		end if;
+	end;
+	/
+
+	Create or replace procedure privilegiossuperusuariorol
+	is
+		cursor c_privs is
+		Select GRANTEE,PRIVILEGE
+		from dba_sys_privs
+		where ADMIN_OPTION='YES'
+		and GRANTEE in (Select ROLE
+				FROM DBA_ROLES);
+		v_compuesto number(1):=0;
+		v_rol varchar2(1000):='SIMPLE';
+	begin
+		for v_privs in c_privs loop
+			SELECT count(*) into v_compuesto
+			FROM DBA_ROLE_PRIVS
+			where GRANTED_ROLE=v_privs.GRANTEE;
+			if v_compuesto=0 then
+				verusuariorolsimple(v_privs.GRANTEE,v_privs.PRIVILEGE);
+			else
+				verusuariorolcompuesto(v_privs.GRANTEE,v_privs.PRIVILEGE);
+			end if;
+		end loop;
+	end;
+	/
+
+
+	Create or replace procedure privilegiossuperusuariodirecto
+	is
+		cursor c_privsd is
+		Select GRANTEE,PRIVILEGE
+		from dba_sys_privs
+		where ADMIN_OPTION='YES'
+		and GRANTEE in (Select USERNAME
+				FROM DBA_USERS);
+	begin
+		for v_privsd in c_privsd loop
+			dbms_output.put_line('Usuario: '||v_privsd.GRANTEE);
+			dbms_output.put_line('Privilegio: '||v_privsd.PRIVILEGE);
+			dbms_output.put_line(chr(13));
+		end loop;
+	end;
+	/
+
+	Create or replace procedure privilegiossuperusuario
+	is
+		
+	begin
+		dbms_output.put_line('Usuarios que pueden conceder privilegios');
+		dbms_output.put_line('----------------------------------------');
+		privilegiossuperusuariodirecto;
+		privilegiossuperusuariorol;
+	end;
+	/
+
+
+
+
+
+
+
+CASO PRÁCTICO 2:
+
+
+    1. (ORACLE) La vida de un DBA es dura. Tras pedirlo insistentemente, en tu empresa han contratado una persona para ayudarte. Decides que se encargará de las siguientes tareas:
+
+	CREATE USER ayudante IDENTIFIED BY ayudante123;
+
+    • Resetear los archivos de log en caso de necesidad.
+
+    • Crear funciones de complejidad de contraseña y asignárselas a  usuarios.
+
+	GRANT CREATE PROCEDURE, EXECUTE, ALTER USER, CREATE PROFILE ON ayudante.* TO 'ayudante'@'%';
+
+    • Eliminar la información de rollback. (este privilegio podrá pasarlo a quien quiera)
+    • Modificar información existente en la tabla dept del usuario scott. (este privilegio podrá pasarlo a quien quiera)
+
+	GRANT GRANT OPTION, ALTER TABLE ON scott.dept TO 'ayudante'@'%';
+    • Realizar pruebas de todos los procedimientos existentes en la base de datos.
+
+    • Poner un tablespace fuera de línea.
+	GRANT ALTER TABLESPACE, GRANT OPTION ON *.* TO 'ayudante'@'%';
+
+Crea un usuario llamado Ayudante y, sin usar los roles predefinidos de ORACLE, dale  los privilegios mínimos para que pueda resolver dichas tareas.
+
+Pista: Si no recuerdas el nombre de un privilegio, puedes buscarlo en el diccionario de datos.
+
+2. (ORACLE) Muestra el texto de la última sentencia SQL que se ejecuto en el servidor, junto con el número de veces que se ha ejecutado desde que se cargó en el Shared Pool y el tiempo de CPU empleado en su ejecución.
+       
+
+	Select distinct sql_text,executions,CPU_TIME
+	from v$sqlarea
+	order by first_load_TIME desc
+	fetch first 1 rows only;
+
+
+3. (ORACLE, Postgres) Realiza un procedimiento que reciba dos nombres de usuario y genere un script que asigne al primero los privilegios de inserción y modificación sobre todas las tablas del segundo, así como el de ejecución de cualquier procedimiento que tenga el segundo usuario.
+
+ORACLE:
+
+
+	Create or replace procedure MostrarScriptPrivilegios(p_objeto varchar2,p_user varchar2,p_diferencia number)
+	is
+	begin
+
+		if p_diferencia = 1 then
+			dbms_output.put_line('GRANT INSERT ON '||p_objeto||' TO '||p_user||';');
+			dbms_output.put_line('GRANT ALTER ON '||p_objeto||' TO '||p_user||';');
+		elsif p_diferencia  = 2 then
+			dbms_output.put_line('GRANT EXECUTE ON '||p_objeto||' TO '||p_user||';');
+		end if;
+	end;
+	/
+
+
+	Create or replace procedure AsignarPrivilegios(p_usernopriv varchar2,p_usersipriv varchar2)
+	is
+		cursor c_usertablas is
+		Select table_name
+		from dba_tables
+		where owner=p_usersipriv;
+
+		cursor c_userproce is
+		Select object_name
+		from dba_procedures
+		where owner=p_usersipriv
+		and object_type='PROCEDURE';
+	begin
+		dbms_output.put_line(chr(13));
+		dbms_output.put_line('Privilegios sobre las tablas');
+		dbms_output.put_line('----------------------------');
+		for v_usertablas in c_usertablas loop
+			MostrarScriptPrivilegios(v_usertablas.table_name,p_usernopriv,1);
+		end loop;
+		dbms_output.put_line(chr(13));
+		dbms_output.put_line('Privilegios sobre procedimientos');
+		dbms_output.put_line('--------------------------------');
+		for v_userproce in c_userproce loop
+			MostrarScriptPrivilegios(v_userproce.object_name,p_usernopriv,2);
+		end loop;
+	
+	end;
+	/
+
+
+
+
+
+POSTGRES:
+
+	CREATE OR REPLACE FUNCTION script (p_userA varchar(30),p_userB varchar(30))
+	returns text as $$
+	declare
+		v_tab RECORD;
+		v_pro RECORD;
+		v_reg  text DEFAULT '';
+	
+		c_tablas CURSOR
+		for select tablename 
+		from pg_tables 
+		where tableowner = p_userB;
+	
+		c_proc CURSOR
+		for SELECT pg_proc.proname
+		FROM pg_proc 
+		INNER JOIN pg_authid 
+		ON pg_proc.proowner = pg_authid.oid
+		where pg_authid.rolname = p_userB;
+	
+	BEGIN	
+		OPEN c_tablas;
+		LOOP
+		FETCH c_tablas INTO v_tab;
+		EXIT when not found;
+	
+		v_reg:= v_reg 
+		||'GRANT INSERT ON '||v_tab||' TO '||p_userB||';'||chr(10)
+		||'GRANT ALTER ON '||v_tab||' TO '||p_userB||';'||chr(10)
+		||'GRANT UPDATE ON '||v_tab||' TO '||p_userB||';'||chr(10);
+
+		END LOOP;
+		CLOSE c_tablas;
+
+		OPEN c_proc;
+		LOOP
+		FETCH c_proc INTO v_pro;
+		EXIT when not found;
+
+		v_reg:= v_reg 
+		||'GRANT EXECUTE ON FUNCTION ' || v_pro||' TO '||p_userB||';'||chr(10);
+
+		END LOOP;
+		CLOSE c_proc;
+
+		return v_reg;
+	END;
+	$$ LANGUAGE plpgsql;
+
+4. (ORACLE) Realiza un procedimiento que genere un script que cree un rol conteniendo todos los permisos que tenga el usuario cuyo nombre reciba como parámetro, le hayan sido asignados a aquél directamente o a traves de roles. El nuevo rol deberá llamarse BackupPrivsNombreUsuario.
+
+
+	create or replace procedure detectarpermisosobjetorol(user_name varchar2,privilege varchar2,object varchar2)
+	is
+
+	CURSOR c_role_user IS
+	select granted_role
+	from DBA_ROLE_PRIVS
+	where grantee=user_name;
+	v_indicador number(2):=0;
+
+	begin
+
+	dbms_output.put_line('create role BackupPrivsNombreUsuario;');
+
+	for v_roleuser in c_role_user loop
+
+	    analizarroles(v_roleuser.granted_role,privilege,object,v_indicador);
+
+	end loop;
+
+	end;
+	/
+
+	create or replace procedure analizarroles(rol varchar2,privileges varchar2,object varchar2,v_indicador in out number)
+	is
+	rol_compuesto number(1):=0;
+
+	begin
+
+	SELECT count(*) into rol_compuesto
+	FROM ROLE_ROLE_PRIVS
+	WHERE ROLE=rol;
+
+	if rol_compuesto=0 then
+
+	  rolsimple(rol,privileges,object,v_indicador);
+
+	else
+
+	  rolcompuesto(rol,privileges,object,v_indicador);
+
+	end if;
+
+	end;
+	/
+
+
+	create or replace procedure rolsimple(rol varchar2,privileges varchar2,object varchar2,v_indicador in out number)
+	is
+
+	CURSOR c_privilegiorolsimple IS
+	select privilege
+	from role_tab_privs
+	where role=rol;
+	
+	begin
+
+
+	if c_privilegiorolsimple is null then
+
+
+	for privilegiosimple in c_privilegiorolsimple  loop
+
+
+	dbms_output.put_line('grant ' || privilegiosimple.privilege || ' to BackupPrivsNombreUsuario;');
+
+	end loop;
+
+	end if;
+
+	end;
+	/
+
+
+	create or replace procedure rolcompuesto(rol varchar2,privileges varchar2,object varchar2,v_indicador in out number)
+	is
+
+	cursor c_rolcompuesto is
+	select GRANTED_ROLE
+	from role_role_privs
+	start with ROLE = rol
+	connect by ROLE = prior GRANTED_ROLE;
+
+	cursor c_privilegiorolcompuesto is
+	select privilege
+	from role_tab_privs
+	where role=compuesto.granted_role;
+
+	begin
+
+	if c_privilegiorolcompuesto is null then
+	for privilegiocompuesto in c_privilegiorolcompuesto  loop
+
+
+	dbms_output.put_line('grant ' || privilegiocompuesto.privilege || ' to BackupPrivsNombreUsuario;');
+
+	end loop;
+
+	else
+
+	for compuesto in c_rolcompuesto loop
+	rolsimple(rol,privileges,object,v_indicador);
+	end loop;
+	end if;
+
+	end;
+	/
+
+
