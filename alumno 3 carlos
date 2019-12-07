@@ -1,0 +1,135 @@
+1. Averigua que privilegios de sistema hay en MySQL y como se asignan a un usuario.
+
+  * CREATE USER			Crear nuevo Usuario.
+  * FILE					Leer y escribir ficheros.
+  * PROCESS				Muestra información de los procesos.
+  * RELOAD				Recargar la configuación. (como hacer FLUSH;)
+  * REPLICATION CLIENT	Para ejecutar SHOW MASTER STATUS, SHOW SLAVE STATUS and SHOW BINARY LOGS.
+  * REPLICATION SLAVE		Para actualizar al esclavo.
+  * SHOW DATABASES		Muestra las Bases de Datos en el sistema
+  * SHUTDOWN				Apagar la Base de Datos
+  * SUPER					Privilegios de superusuario
+
+  *Sintax*
+
+  GRANT <privilege> ON *.* TO <usuario>;
+  
+2. Averigua cual es la forma de asignar y revocar privilegios sobre una tabla concreta en MySQL.
+
+ 	GRANT <privilege> ON <bbdd>.<table> TO <user>;
+	REVOKE <privilege> ON <bbdd>.<table> FROM <user>;
+
+
+3. Averigua si existe el concepto de rol en MySQL y señala las diferencias con los roles de ORACLE.
+
+	En MariaDB tambien existe el concepto de rol muy similar a oracle con la escepción de que no posee roles por defecto como oracle y que tenemos 		la limitación de privilegios que dispone MariaDB.
+
+
+4. Averigua si existe el concepto de perfil como conjunto de límites sobre el uso de recursos o sobre la contraseña en MySQL y señala las diferencias con los perfiles de ORACLE.
+
+	No, no existe el concepto de perfil como en Oracle.
+
+
+5. Realiza consultas al diccionario de datos de MySQL para averiguar todos los privilegios que tiene un usuario concreto.
+
+	SHOW GRANT FOR <user>;
+	select * from user_privileges where grantee='\'root\'@\'localhost\'';
+
+
+6. Realiza consultas al diccionario de datos en MySQL para averiguar qué usuarios pueden consultar una tabla concreta.
+
+	select grantee from table_privileges where table_name= '<table>';
+
+1. Realiza un procedimiento llamado PermisosdeAsobreB que reciba dos nombres de usuario y muestre los permisos que tiene el primero de ellos sobre objetos del segundo.
+
+#########################################################################
+
+CREATE OR REPLACE PROCEDURE privs_directos(userA VARCHAR2,userB VARCHAR2)
+IS
+  CURSOR c_privs IS
+  select privilege, table_name 
+  from dba_tab_privs 
+  where grantee = userA and owner = userB;
+BEGIN
+  dbms_output.put_line('Pivilegios Directos');
+  dbms_output.put_line('Privilegio'||chr(9)||'Objeto'||chr(10));
+  FOR priv IN c_privs LOOP   
+    dbms_output.put_line(priv.privilege ||chr(9)||chr(9)|| priv.table_name);
+  END LOOP;
+END;
+/
+#########################################################################
+
+CREATE OR REPLACE PROCEDURE privs_rol(p_role VARCHAR2,userB VARCHAR2)
+IS
+  CURSOR c_roles IS
+  select role, privilege, table_name
+  from role_tab_privs
+  where role = p_role and owner = userB;
+BEGIN
+  dbms_output.put_line(chr(10)||'Rol: '||p_role);
+  dbms_output.put_line('Privilegio'||chr(9)||'Objeto'||chr(10));
+  FOR rol IN c_roles LOOP   
+    dbms_output.put_line(rol.privilege ||chr(9)||chr(9)|| rol.table_name);
+  END LOOP;
+END;
+/
+#########################################################################
+
+CREATE OR REPLACE PROCEDURE buscar_rol(p_role VARCHAR2,userB VARCHAR2)
+IS
+  CURSOR c_rols IS
+  select granted_role
+  from role_role_privs
+  where role= p_role;
+BEGIN
+  FOR rol IN c_rols LOOP   
+    privs_rol(rol.granted_role,userB);
+    buscar_rol(rol.granted_role,userB);
+  END LOOP;
+END;
+/
+#########################################################################
+
+CREATE OR REPLACE PROCEDURE PermisosdeAsobreB (userA VARCHAR2,userB VARCHAR2)
+IS
+  CURSOR c_roles IS
+  select granted_role
+  from dba_role_privs
+  where grantee= userA;
+BEGIN
+  privs_directos(userA,userB);
+  FOR rol IN c_roles LOOP
+    privs_rol(rol.granted_role,userB);
+    buscar_rol(rol.granted_role,userB);
+  END LOOP;
+END;
+/
+
+
+
+2. Realiza un procedimiento llamado MostrarInfoPerfil que reciba el nombre de un perfil y muestre su composición y los usuarios que lo tienen asignado.
+
+CREATE OR REPLACE PROCEDURE MostrarInfoPerfil (perfil VARCHAR2)
+IS
+  CURSOR c_profiles IS
+  select resource_name, limit
+  from dba_profiles 
+  where profile= perfil;
+
+  CURSOR c_users IS
+  select username
+  from dba_users 
+  where profile= perfil;
+
+BEGIN
+  dbms_output.put_line('Recurso'||chr(9)||chr(9)||'Limite'||chr(10));
+  FOR perfil in c_profiles loop
+    dbms_output.put_line(perfil.resource_name || chr(9) || perfil.limit);
+  END LOOP;
+  dbms_output.put_line(chr(10)||'Usuarios'||chr(10));
+  FOR user in c_users loop
+    dbms_output.put_line(user.username);
+  END LOOP;
+END;
+/

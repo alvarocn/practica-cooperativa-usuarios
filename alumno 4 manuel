@@ -1,0 +1,187 @@
+Alumno 4 (MongoDB y ORACLE):
+
+MongoDB:
+
+       1. Averigua si existe la posibilidad en MongoDB de limitar el acceso de un usuario a los datos de una colección determinada.
+       
+       2. Averigua si en MongoDB existe el concepto de privilegio del sistema y muestra las diferencias más importantes con ORACLE.
+
+       3. Explica los roles por defecto que incorpora MongoDB y como se asignan a los usuarios.
+
+       4. Explica como puede consultarse el diccionario de datos de MongoDB para saber que roles han sido concedidos a un usuario y qué privilegios incluyen.
+
+ORACLE:
+
+       1. Realiza un procedimiento llamado MostrarObjetosAccesibles que reciba un nombre de usuario y muestre todos los objetos a los que tiene acceso.
+	
+	CREATE OR REPLACE PROCEDURE MostrarObjetosAccesibles(user_name varchar2)
+	IS
+	BEGIN
+	select privilege,table_name,grantee
+	from dba_tab_privs
+	where grantee=user_name;
+	END;
+
+       2. Realiza un procedimiento que reciba un nombre de usuario, un privilegio y un objeto y nos muestre el mensaje 'SI, DIRECTO' si el usuario 		tiene ese privilegio sobre objeto concedido directamente, 'SI, POR ROL' si el usuario lo tiene en alguno de los roles que tiene concedidos y 		un 'NO' si el usuario no tiene dicho privilegio.
+
+	create or replace procedure permisosobjetos(user_name varchar2,privilege varchar2,object varchar2)
+	is
+
+	v_directo number(1):=0;
+
+
+	begin
+
+	v_directo:=detectarpermisosdirecto(user_name,privilege,object);
+
+	if v_directo=0 THEN
+
+	  detectarpermisosobjetorol(user_name,privilege,object);
+
+	else
+
+	  dbms_output.put_line('SI, directo');
+
+	end if;
+
+	end;
+	/
+
+	create or replace function detectarpermisosdirecto(user_name varchar2,privileges varchar2,object varchar2)
+	return number
+	is
+
+	v_directo number(3):=0;
+
+	BEGIN
+
+	select count(*) into v_directo
+	from dba_tab_privs
+	where grantee=user_name
+	and privilege=privileges
+	and table_name=object;
+
+
+	if v_directo>0 then
+
+	return 1;
+	else
+
+	return 0;
+
+	end if;
+
+	end;
+	/
+
+
+	create or replace procedure detectarpermisosobjetorol(user_name varchar2,privilege varchar2,object varchar2)
+	is
+
+	CURSOR c_role_user IS
+	select granted_role
+	from DBA_ROLE_PRIVS
+	where grantee=user_name;
+	v_indicador number(2):=0;
+
+	begin
+
+	for v_roleuser in c_role_user loop
+
+	analizarroles(v_roleuser.granted_role,privilege,object,v_indicador);
+
+	end loop;
+
+	if v_indicador=0 then
+	dbms_output.put_line('NO');
+
+	else
+
+	dbms_output.put_line('SI, por rol');
+
+	end if;
+	end;
+	/
+
+	create or replace procedure analizarroles(rol varchar2,privileges varchar2,object varchar2,v_indicador in out number)
+	is
+	rol_compuesto number(1):=0;
+
+
+
+	begin
+
+	SELECT count(*) into rol_compuesto
+	FROM ROLE_ROLE_PRIVS
+	WHERE ROLE=rol;
+
+	if rol_compuesto=0 then
+
+	rolsimple(rol,privileges,object,v_indicador);
+
+	else
+
+	rolcompuesto(rol,privileges,object,v_indicador);
+
+	end if;
+
+	end;
+	/
+
+
+
+	create or replace procedure rolsimple(rol varchar2,privileges varchar2,object varchar2,v_indicador in out number)
+	is
+
+	v_verprivilegio number(1):=0;
+
+	begin
+
+	select count(*) into v_verprivilegio
+	from role_tab_privs
+	where table_name=object
+	and privilege=privileges
+	and role=rol;
+
+	if v_verprivilegio>0 then
+	v_indicador:=1;
+	end if;
+
+	end;
+	/
+	
+
+	create or replace procedure rolcompuesto(rol varchar2,privileges varchar2,object varchar2,v_indicador in out number)
+	is
+
+	cursor c_rolcompuesto is
+	select GRANTED_ROLE
+	from role_role_privs
+	start with ROLE = rol
+	connect by ROLE = prior GRANTED_ROLE;
+
+	v_verprivilegio number(1):=0;
+
+	begin
+
+	for compuesto in c_rolcompuesto loop
+
+	select count(*) into v_verprivilegio
+	from role_tab_privs
+	where table_name=object
+	and privilege=privileges
+	and role=compuesto.granted_role;
+
+	end loop;
+
+	if v_verprivilegio>0 then
+	v_indicador:=1;
+	else
+	for compuesto in c_rolcompuesto loop
+	rolsimple(rol,privileges,object,v_indicador);
+	end loop;
+	end if;
+
+	end;
+	/
+
